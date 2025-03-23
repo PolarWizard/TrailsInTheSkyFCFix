@@ -188,8 +188,8 @@ void readYml() {
  * @return void
  */
 void forceKeepAspect() {
-    const char* patternFind = "75 ?? 0F 28 05 ?? ?? ?? ?? 0F 29 05 ?? ?? ?? ??";
-    uintptr_t  hookOffset = 0;
+    const char* patternFind = "76 ?? F2 0F 5E C8 F2 0F 11 0D ?? ?? ?? ?? 80 3D ?? ?? ?? ?? 00 75 ??";
+    uintptr_t  hookOffset = 0x15;
 
     bool enable = yml.masterEnable;
     LOG("Fix {}", enable ? "Enabled" : "Disabled");
@@ -252,7 +252,7 @@ void forceKeepAspect() {
  * @return void
  */
 void texturesFix() {
-    const char* patternFind  = "66 0F 2F C1 76 ?? A1 ?? ?? ?? ?? 66 0F 6E 05 ?? ?? ?? ??";
+    const char* patternFind = "66 0F 2F C1 76 ?? A1 ?? ?? ?? ?? 66 0F 6E 05 ?? ?? ?? ??";
     uintptr_t hookOffset = 0;
 
     bool enable = yml.masterEnable & yml.fix.textures.enable;
