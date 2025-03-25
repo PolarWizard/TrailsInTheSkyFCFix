@@ -43,7 +43,7 @@
 #include "utils.hpp"
 
 // Macros
-#define VERSION "1.0.0"
+#define VERSION "1.0.1"
 #define LOG(STRING, ...) spdlog::info("{} : " STRING, __func__, ##__VA_ARGS__)
 
 // .yml to struct
@@ -62,7 +62,7 @@ typedef struct yml_t {
 } yml_t;
 
 // Globals
-HMODULE baseModule = GetModuleHandle(NULL);
+Utils::ModuleInfo module(GetModuleHandle(NULL));
 YAML::Node config = YAML::LoadFile("TrailsInTheSkyFCFix.yml");
 yml_t yml;
 
@@ -84,18 +84,18 @@ void logInit() {
 
     // Get game name and exe path
     WCHAR exePath[_MAX_PATH] = { 0 };
-    GetModuleFileNameW(baseModule, exePath, MAX_PATH);
+    GetModuleFileNameW(module.address, exePath, MAX_PATH);
     std::filesystem::path exeFilePath = exePath;
-    std::string exeName = exeFilePath.filename().string();
+    module.name = exeFilePath.filename().string();
 
     // Log module details
     LOG("-------------------------------------");
-    LOG("Compiler: {:s}", Utils::getCompilerInfo().c_str());
+    LOG("Compiler: {:s}", Utils::getCompilerInfo());
     LOG("Compiled: {:s} at {:s}", __DATE__, __TIME__);
     LOG("Version: {:s}", VERSION);
-    LOG("Module Name: {:s}", exeName.c_str());
-    LOG("Module Path: {:s}", exeFilePath.string().c_str());
-    LOG("Module Addr: 0x{:x}", (uintptr_t)baseModule);
+    LOG("Module Name: {:s}", module.name);
+    LOG("Module Path: {:s}", exeFilePath.string());
+    LOG("Module Addr: 0x{:x}", reinterpret_cast<u64>(module.address));
 }
 
 /**
@@ -188,33 +188,16 @@ void readYml() {
  * @return void
  */
 void forceKeepAspect() {
-    const char* patternFind = "76 ?? F2 0F 5E C8 F2 0F 11 0D ?? ?? ?? ?? 80 3D ?? ?? ?? ?? 00 75 ??";
-    uintptr_t  hookOffset = 0x15;
-
+    Utils::SignatureHook hook(
+        "76 ?? F2 0F 5E C8 F2 0F 11 0D ?? ?? ?? ?? 80 3D ?? ?? ?? ?? 00 75 ??",
+        0x15
+    );
     bool enable = yml.masterEnable;
-    LOG("Fix {}", enable ? "Enabled" : "Disabled");
-    if (enable) {
-        std::vector<uint64_t> addr;
-        Utils::patternScan(baseModule, patternFind, &addr);
-        uint8_t* hit = (uint8_t*)addr[0];
-        uintptr_t absAddr = (uintptr_t)hit;
-        uintptr_t relAddr = (uintptr_t)hit - (uintptr_t)baseModule;
-        if (hit) {
-            LOG("Found '{}' @ 0x{:x}", patternFind, relAddr);
-            uintptr_t hookAbsAddr = absAddr + hookOffset;
-            uintptr_t hookRelAddr = relAddr + hookOffset;
-            static SafetyHookMid aspectMidHook{};
-            aspectMidHook = safetyhook::create_mid(reinterpret_cast<void*>(hookAbsAddr),
-                [](SafetyHookContext& ctx) {
-                    ctx.eflags &= ~0x40; // Clear zero flag
-                }
-            );
-            LOG("Hooked @ 0x{:x} + 0x{:x} = 0x{:x}", relAddr, hookOffset, hookRelAddr);
+    Utils::injectHook(enable, module, hook,
+        [](SafetyHookContext& ctx) {
+            ctx.eflags &= ~0x40; // Clear zero flag
         }
-        else {
-            LOG("Did not find '{}'", patternFind);
-        }
-    }
+    );
 }
 
 /**
@@ -252,33 +235,16 @@ void forceKeepAspect() {
  * @return void
  */
 void texturesFix() {
-    const char* patternFind = "66 0F 2F C1 76 ?? A1 ?? ?? ?? ?? 66 0F 6E 05 ?? ?? ?? ??";
-    uintptr_t hookOffset = 0;
+    Utils::SignatureHook hook(
+        "66 0F 2F C1 76 ?? A1 ?? ?? ?? ?? 66 0F 6E 05 ?? ?? ?? ??"
+    );
 
     bool enable = yml.masterEnable & yml.fix.textures.enable;
-    LOG("Fix {}", enable ? "Enabled" : "Disabled");
-    if (enable) { // Master FOV controller
-        std::vector<uint64_t> addr;
-        Utils::patternScan(baseModule, patternFind, &addr);
-        uint8_t* hit = (uint8_t*)addr[0];
-        uintptr_t absAddr = (uintptr_t)hit;
-        uintptr_t relAddr = (uintptr_t)hit - (uintptr_t)baseModule;
-        if (hit) {
-            LOG("Found '{}' @ 0x{:x}", patternFind, relAddr);
-            uintptr_t hookAbsAddr = absAddr + hookOffset;
-            uintptr_t hookRelAddr = relAddr + hookOffset;
-            static SafetyHookMid texturesMidHook{};
-            texturesMidHook = safetyhook::create_mid(reinterpret_cast<void*>(hookAbsAddr),
-                [](SafetyHookContext& ctx) {
-                    ctx.xmm0.u64[0] = 0x3FF0000000000000;
-                }
-            );
-            LOG("Hooked @ 0x{:x} + 0x{:x} = 0x{:x}", relAddr, hookOffset, hookRelAddr);
+    Utils::injectHook(enable, module, hook,
+        [](SafetyHookContext& ctx) {
+            ctx.xmm0.u64[0] = 0x3FF0000000000000;
         }
-        else {
-            LOG("Did not find '{}'", patternFind);
-        }
-    }
+    );
 }
 
 /**
