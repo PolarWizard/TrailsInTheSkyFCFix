@@ -43,8 +43,12 @@
 #include "utils.hpp"
 
 // Macros
-#define VERSION "1.0.1"
+#define VERSION "1.1.0"
 #define LOG(STRING, ...) spdlog::info("{} : " STRING, __func__, ##__VA_ARGS__)
+
+#define TRAILS_IN_THE_SKY_FC 1
+#define TRAILS_IN_THE_SKY_SC 2
+#define TRAILS_IN_THE_SKY_TC 3
 
 // .yml to struct
 typedef struct textures_t {
@@ -65,6 +69,11 @@ typedef struct yml_t {
 Utils::ModuleInfo module(GetModuleHandle(NULL));
 YAML::Node config = YAML::LoadFile("TrailsInTheSkyFCFix.yml");
 yml_t yml;
+std::map <std::string, u32> exeMap = {
+    {"ed6_win_DX9.exe",  TRAILS_IN_THE_SKY_FC},
+    {"ed6_win2_DX9.exe", TRAILS_IN_THE_SKY_SC},
+    {"ed6_win3_DX9.exe", TRAILS_IN_THE_SKY_TC}
+};
 
 /**
  * @brief Initializes logging for the application.
@@ -87,6 +96,7 @@ void logInit() {
     GetModuleFileNameW(module.address, exePath, MAX_PATH);
     std::filesystem::path exeFilePath = exePath;
     module.name = exeFilePath.filename().string();
+    module.id = exeMap[module.name];
 
     // Log module details
     LOG("-------------------------------------");
@@ -248,6 +258,98 @@ void texturesFix() {
 }
 
 /**
+ * @brief Increases the game's tile render distance.
+ *
+ * @details
+ * Once you start playing the game in resolutions larger than 21:9 you begin to see tiles render in and out
+ * based on the distance from the camera origin, or center of the screen.
+ *
+ * How was this found?
+ * This is a simple case of culling, where things off camera are not rendered on purpose in order to reduce
+ * workload on both the CPU and GPU which in turn improves performance as its only rendering that which is
+ * visible to the player on the screen. As of writing this the game itself is over 20 years old since its
+ * original release on Windows in 2004. It is quite remarkable that the game is able to run on modern
+ * monitor resolutions up to 21:9 issue free, that may have been an update, but impressive none the less.
+ *
+ * The game runs DX9 or DX8, but the fix is done for DX9 and is expected that you run the DX9 version of the
+ * game. The DX9 API offers many functions that provide culling support and luckily the game did use these
+ * functions as opposed to a custom tile rendering manager solution, that manages which tiles should and
+ * should not be rendered at any given time.
+ *
+ * In order to cull objects off camera we need a projection matrix which defines a frustum, which is used for
+ * frustum culling. A good candidate function for this is `D3DXMatrixPerspectiveFovLH` which constructs a
+ * perspective projection matrix based on provided field of view, aspect ratio, and z-near and z-far values.
+ *
+ * The game has 4 locations where `D3DXMatrixPerspectiveFovLH` is called:
+ * 1 - ed6_win2_DX9.exe+5B5CD  - FF D6                - call esi -> D3DX9_43.D3DXMatrixPerspectiveFovLH
+ * 2 - ed6_win2_DX9.exe+76D92  - FF 15 5C135800       - call dword ptr [ed6_win2_DX9.exe+18135C] -> D3DX9_43.D3DXMatrixPerspectiveFovLH
+ * 3 - ed6_win2_DX9.exe+9224A  - FF 15 5C135800       - call dword ptr [ed6_win2_DX9.exe+18135C] -> D3DX9_43.D3DXMatrixPerspectiveFovLH
+ * 4 - ed6_win2_DX9.exe+110A16 - FF 15 5C135800       - call dword ptr [ed6_win2_DX9.exe+18135C] -> D3DX9_43.D3DXMatrixPerspectiveFovLH
+ *
+ * Out of all these calls the one that effects tile rendering is the 1st one, where the address is first
+ * stored within esi then called.
+ *
+ * The function is as follows:
+ * https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dxmatrixperspectivefovlh
+ * D3DXMATRIX* D3DXMatrixPerspectiveFovLH(
+ *   _Inout_ D3DXMATRIX *pOut,
+ *   _In_    FLOAT      fovy,
+ *   _In_    FLOAT      Aspect,
+ *   _In_    FLOAT      zn,
+ *   _In_    FLOAT      zf
+ * );
+ * Out of all the parameters that this function has, there are 2 of interest:
+ * 1 - `fovy`: Field of view in the y direction, in radians.
+ * 2 - `Aspect`: Aspect ratio, defined as view space width divided by height.
+ *
+ * `fovy` by default is 0x3E8F5C29 (0.28f), and this value is read in multiple locations, but no writes
+ * take place when ingame, or I just didnt encounter that case, but none the less changing this value
+ * does 2 things visually:
+ * 1. Increases/Decreases the FOV angle, which results in a larger/smaller frustum, which means the camera
+ * is visually further/closer than before, so you see more/less of the world.
+ * 2. Increases the tile render distance.
+ *
+ * 1. and 2. are mutually exclusive, changing this parameter for the DX9 call mentioned above will perform
+ * point 1. as expected. In order to achieve 2. we need to see where else this is value is read:
+ * 1 - ed6_win2_DX9.exe+87054 - F3 0F10 59 24         - movss xmm3,[ecx+24] <- this does 2.
+ * 2 - ed6_win2_DX9.exe+928E1 - F3 0F10 59 24         - movss xmm3,[ecx+24] <- no visual effect when changed
+ * 3 - ed6_win2_DX9.exe+903FF - F3 0F10 59 24         - movss xmm3,[ecx+24] <- no visual effect when changed
+ * 4 - ed6_win2_DX9.exe+5B5BC - F3 0F10 40 24         - movss xmm0,[eax+24] <- this does 1.
+ *
+ * As already stated above with some experimentation we know where the value is read and now know
+ * which read is the one that effects tile rendering.
+ *
+ * A hook and injection later where we set the value to 2.0f fixes the issue and now visible tile rendering
+ * is gone. Why 2.0f? I needed a value large enough to just render the entire map, this rendering and choice
+ * goes well beyond 32:9, and it is quite frankly a waste of CPU andGPU resources to render the entire map
+ * every frame, game loop, whatever, but ultimately this game is oldenough and simple enough graphically
+ * that this is not a performance bottleneck and it will never be onmodern hardware.
+ *
+ * @return void
+ */
+void tileRenderFix() {
+    Utils::SignatureHook hook(
+        "F3 0F 11 4C 24 04    F3 0F 11 04 24    51    FF D6"
+    );
+    bool enable = yml.masterEnable;
+    Utils::injectHook(enable, module, hook,
+        [](SafetyHookContext& ctx) {
+            static f32 originalFov; // used to save the original game calculated FOV
+
+            u32 offset = module.id == TRAILS_IN_THE_SKY_TC ? 0x30 : 0x24;
+            f32* targetAddr = reinterpret_cast<f32*>(ctx.eax + offset);
+
+            f32 newFov = 2.0f * std::numbers::pi_v<f32>;
+            if (*targetAddr != newFov) {
+                originalFov = *targetAddr;
+                *targetAddr = newFov;
+            }
+            ctx.xmm0.f32[0] = originalFov;
+        }
+    );
+}
+
+/**
  * @brief Main function that initializes and applies various fixes.
  *
  * This function serves as the entry point for the DLL. It performs the following tasks:
@@ -264,6 +366,7 @@ DWORD __stdcall Main(void* lpParameter) {
     readYml();
     forceKeepAspect();
     texturesFix();
+    tileRenderFix();
     return true;
 }
 
