@@ -97,43 +97,48 @@ namespace Utils
         VirtualProtect((LPVOID)address, patternBytes.size(), oldProtect, &oldProtect);
     }
 
-    void patternScan(void* module, std::string_view signature, std::vector<u64>& addresses)
+    uintptr_t patternScan(void* module, std::string& signature)
     {
-        static auto patternToByte = [](std::string_view pattern) {
-            std::vector<u8> bytes;
-            std::stringstream ss(pattern.data()); // Create a stringstream from the input pattern
-            std::string byteStr;
+        static auto patternToByte = [](const char* pattern) {
+            std::vector<int> bytes;
+            auto start = const_cast<char*>(pattern);
 
-            while (ss >> byteStr) {  // Extract each token (hex byte or ??)
-                if (byteStr == "??") {
-                    bytes.push_back(0xFF); // Wildcard byte
+            for (auto current = start; *current != '\0'; ++current) {
+                if (*current == '?') {
+                    current += 2;
+                    bytes.push_back(-1);
                 }
                 else {
-                    u32 byte;
-                    std::stringstream(byteStr) >> std::hex >> byte; // Convert hex string to integer
-                    bytes.push_back(static_cast<u8>(byte));
+                    bytes.push_back(strtoul(current, &current, 16));
                 }
             }
             return bytes;
         };
 
-        auto* dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(module);
-        auto* ntHeaders = reinterpret_cast<PIMAGE_NT_HEADERS>(
-            reinterpret_cast<u8*>(module) + dosHeader->e_lfanew);
+        auto dosHeader = (PIMAGE_DOS_HEADER)module;
+        auto ntHeaders = (PIMAGE_NT_HEADERS)((u8*)module + dosHeader->e_lfanew);
 
-        size_t sizeOfImage = ntHeaders->OptionalHeader.SizeOfImage;
-        auto patternBytes = patternToByte(signature);
-        std::span<const u8> scanBytes(reinterpret_cast<u8*>(module), sizeOfImage);
+        auto sizeOfImage = ntHeaders->OptionalHeader.SizeOfImage;
 
-        u64 patternSize = patternBytes.size();
+        auto patternBytes = patternToByte(signature.data());
 
-        for (size_t i = 0; i <= (sizeOfImage - patternSize); i++) {
-            if (std::equal(patternBytes.begin(), patternBytes.end(), scanBytes.begin() + i,
-                [](u8 patternByte, u8 scanByte) {
-                    return patternByte == 0xFF || patternByte == scanByte;
-                })) {
-                addresses.push_back(reinterpret_cast<u64>(&scanBytes[i]));
+        auto scanBytes = reinterpret_cast<u8*>(module);
+
+        auto s = patternBytes.size();
+        auto d = patternBytes.data();
+
+        for (uintptr_t i = 0; i < sizeOfImage - s; ++i) {
+            bool found = true;
+            for (uintptr_t j = 0; j < s; ++j) {
+                if (scanBytes[i + j] != d[j] && d[j] != -1) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return (uintptr_t)&scanBytes[i];
             }
         }
+        return 0;
     }
 }

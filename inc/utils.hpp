@@ -58,6 +58,7 @@ namespace Utils
     public:
         HMODULE address;
         std::string name;
+        u32 id;
         ModuleInfo(HMODULE address) : address(address) {}
     };
 
@@ -135,7 +136,7 @@ namespace Utils
      * @param signature IDA-style byte array pattern.
      * @param address Vector to store found addresses.
      */
-    void patternScan(void* module, std::string_view signature, std::vector<u64>& addresses);
+    uintptr_t patternScan(void* module, std::string& signature);
 
     /**
      * @brief Injects a mid-function hook based on a signature pattern match.
@@ -159,10 +160,8 @@ namespace Utils
     void injectHook(bool enable, Utils::ModuleInfo& module, Utils::SignatureHook& hook, Func&& callback) {
         LOG("Fix {}", enable ? "Enabled" : "Disabled");
         if (enable) {
-            std::vector<u64> addr;
-            Utils::patternScan(module.address, hook.signature, addr);
-            if (addr.empty() == false) {
-                u64 hit = addr[0];
+            uintptr_t hit = Utils::patternScan(module.address, hook.signature);
+            if (hit != NULL) {
                 u64 absAddr = hit;
                 u64 relAddr = hit - reinterpret_cast<u64>(module.address);
                 LOG("Found '{}' @ {:s}+{:x}", hook.signature, module.name, relAddr);
