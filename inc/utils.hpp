@@ -127,14 +127,13 @@ namespace Utils
     void patch(u64 address, std::string& pattern);
 
     /**
-     * @brief Scan for a given byte pattern in a module.
-     * @details Searches the specified module's memory for occurrences of the given
-     *      IDA-style byte pattern. Each match is appended to the `address` vector.
-     *      Wildcard bytes ("??") can be used to match any byte in the pattern.
+     * @brief Scan for a given IDA-style byte pattern in a module.
+     * @details Searches the specified module's memory for the first occurrence of the
+     *      given IDA-style byte pattern. Wildcard bytes ("??") can be used to match any
+     *      byte in the pattern.
      *
      * @param module Base address of the module to scan.
      * @param signature IDA-style byte array pattern.
-     * @param address Vector to store found addresses.
      */
     uintptr_t patternScan(void* module, std::string& signature);
 

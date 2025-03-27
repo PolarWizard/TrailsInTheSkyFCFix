@@ -59,10 +59,20 @@ typedef struct fix_t {
     textures_t textures;
 } fix_t;
 
+typedef struct camera_t {
+    bool enable;
+    f32 zoom;
+} camera_t;
+
+typedef struct feature_t {
+    camera_t camera;
+} feature_t;
+
 typedef struct yml_t {
     std::string name;
     bool masterEnable;
     fix_t fix;
+    feature_t feature;
 } yml_t;
 
 // Globals
@@ -125,9 +135,15 @@ void readYml() {
 
     yml.fix.textures.enable = config["fixes"]["textures"]["enable"].as<bool>();
 
+    yml.feature.camera.enable = config["features"]["camera"]["enable"].as<bool>();
+    yml.feature.camera.zoom = (yml.feature.camera.enable == true) ?
+        config["features"]["camera"]["zoom"].as<f32>() : 1.0f;
+
     LOG("Name: {}", yml.name);
     LOG("MasterEnable: {}", yml.masterEnable);
     LOG("Fix.Textures.Enable: {}", yml.fix.textures.enable);
+    LOG("Feature.Camera.Enable: {}", yml.feature.camera.enable);
+    LOG("Feature.Camera.Zoom: {}", yml.feature.camera.zoom);
 }
 
 /**
@@ -336,6 +352,7 @@ void tileRenderFix() {
         [](SafetyHookContext& ctx) {
             static f32 originalFov; // used to save the original game calculated FOV
 
+            // Unfortunate the the third game uses a different offset...
             u32 offset = module.id == TRAILS_IN_THE_SKY_TC ? 0x30 : 0x24;
             f32* targetAddr = reinterpret_cast<f32*>(ctx.eax + offset);
 
@@ -344,7 +361,7 @@ void tileRenderFix() {
                 originalFov = *targetAddr;
                 *targetAddr = newFov;
             }
-            ctx.xmm0.f32[0] = originalFov;
+            ctx.xmm0.f32[0] = originalFov * yml.feature.camera.zoom;
         }
     );
 }
