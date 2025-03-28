@@ -22,14 +22,37 @@
 
 cmake_minimum_required(VERSION 3.28)
 
+
 # Variables
 set(PROJECT_NAME TrailsInTheSkyFix)
-set(DEFAULT_GAME_FOLDER "C:/Program Files (x86)/Steam/steamapps/common/Trails in the Sky FC")
-set(GAME_FOLDER "${DEFAULT_GAME_FOLDER}" CACHE STRING "User specified path to game folder")
-if (EXISTS "${GAME_FOLDER}/ed6_win_DX9.exe" OR EXISTS "${GAME_FOLDER}/ed6_win2_dx9.exe" OR EXISTS "${GAME_FOLDER}/ed6_win3_dx9.exe")
-    message(STATUS "Game folder: ${GAME_FOLDER}")
+
+set(INSTALL_PATH_OK false)
+if(DEFINED CMAKE_INSTALL_PREFIX AND NOT CMAKE_INSTALL_PREFIX STREQUAL "")
+    if(NOT EXISTS ${CMAKE_INSTALL_PREFIX})
+        message(FATAL_ERROR "Install path '${CMAKE_INSTALL_PREFIX}' does not exist")
+    else()
+        set(VALID_EXES "ed6_win_DX9.exe" "ed6_win2_dx9.exe" "ed6_win3_dx9.exe")
+        foreach(EXE ${VALID_EXES})
+            if(EXISTS "${CMAKE_INSTALL_PREFIX}/${EXE}")
+                set(INSTALL_PATH_OK true)
+                message(STATUS "Path: '${CMAKE_INSTALL_PREFIX}' yields valid game exe: '${EXE}'")
+            endif()
+        endforeach()
+
+        if(NOT INSTALL_PATH_OK)
+            message(WARNING
+                "Provided install path is unexpected: '${CMAKE_INSTALL_PREFIX}'\n"
+                "The path does not contain any of the following valid game exe's: ${VALID_EXES}\n"
+                "Will use anyway during installation... but are you sure this is correct?"
+            )
+        endif()
+    endif()
 else()
-    message(FATAL_ERROR "Bad game folder provided: ${GAME_FOLDER}")
+    set(CMAKE_INSTALL_PREFIX "" CACHE PATH "Path to game folder" FORCE)
+    message(WARNING
+        "Install path not specified! Using 'cmake --install' will NOT work!\n"
+        "If this is a mistake reconfigure using: '-DCMAKE_INSTALL_PREFIX=<path-to-game-folder>'\n"
+    )
 endif()
 
 # Force compilation of 32bit DLL
@@ -74,11 +97,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     safetyhook
 )
 
-install(CODE "
-    execute_process(
-        COMMAND
-            powershell.exe
-                -ExecutionPolicy Bypass
-                -File \"${CMAKE_SOURCE_DIR}/install.ps1\" \"${GAME_FOLDER}\"
-    )
-")
+if(INSTALL_PATH_OK)
+    install(CODE "
+        execute_process(
+            COMMAND
+                powershell.exe
+                    -ExecutionPolicy Bypass
+                    -File \"${CMAKE_SOURCE_DIR}/install.ps1\" \"${CMAKE_INSTALL_PREFIX}\"
+        )
+    ")
+endif()
