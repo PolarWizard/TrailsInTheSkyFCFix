@@ -55,8 +55,13 @@ typedef struct textures_t {
     bool enable;
 } textures_t;
 
+typedef struct tileRenderDistance_t {
+    bool enable;
+} tileRenderDistance_t;
+
 typedef struct fix_t {
     textures_t textures;
+    tileRenderDistance_t tileRenderDistance;
 } fix_t;
 
 typedef struct camera_t {
@@ -134,6 +139,7 @@ void readYml() {
     yml.masterEnable = config["masterEnable"].as<bool>();
 
     yml.fix.textures.enable = config["fixes"]["textures"]["enable"].as<bool>();
+    yml.fix.tileRenderDistance.enable = config["fixes"]["tileRenderDistance"]["enable"].as<bool>();
 
     yml.feature.camera.enable = config["features"]["camera"]["enable"].as<bool>();
     yml.feature.camera.zoom = (yml.feature.camera.enable == true) ?
@@ -142,6 +148,7 @@ void readYml() {
     LOG("Name: {}", yml.name);
     LOG("MasterEnable: {}", yml.masterEnable);
     LOG("Fix.Textures.Enable: {}", yml.fix.textures.enable);
+    LOG("Fix.TileRenderDistance.Enable: {}", yml.fix.tileRenderDistance.enable);
     LOG("Feature.Camera.Enable: {}", yml.feature.camera.enable);
     LOG("Feature.Camera.Zoom: {}", yml.feature.camera.zoom);
 }
@@ -347,7 +354,7 @@ void tileRenderFix() {
     Utils::SignatureHook hook(
         "F3 0F 11 4C 24 04    F3 0F 11 04 24    51    FF D6"
     );
-    bool enable = yml.masterEnable;
+    bool enable = yml.masterEnable & yml.fix.tileRenderDistance.enable;
     Utils::injectHook(enable, module, hook,
         [](SafetyHookContext& ctx) {
             static f32 originalFov; // used to save the original game calculated FOV

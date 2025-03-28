@@ -5,8 +5,12 @@ Adds support for ultrawide resolutions and additional features.
 
 ***This project is designed exclusively for Windows due to its reliance on Windows-specific APIs. The build process requires the use of PowerShell.***
 
-## Features
+## Fixes
 - Restores textures on aspect ratios greater than 21:9
+- Increases tile render distance to prevent pop in/out above 21:9
+
+## Features
+- Adjust camera zoom to view less or more of the game world
 
 ## Build and Install
 ### Using CMake
@@ -14,20 +18,20 @@ Adds support for ultrawide resolutions and additional features.
 ```ps1
 git clone --recurse-submodules https://github.com/PolarWizard/TrailsInTheSkyFix.git
 cd TrailsInTheSkyFix; mkdir build; cd build
-cmake ..
+# If install is not needed you may omit -DCMAKE_INSTALL_PREFIX and cmake install step.
+cmake -DCMAKE_GENERATOR_PLATFORM=Win32 -DCMAKE_INSTALL_PREFIX=<FULL-PATH-TO-GAME-FOLDER> ..
 cmake --build .
 cmake --install .
 ```
-`cmake ..` will attempt to find the game folder in `C:/Program Files (x86)/Steam/steamapps/common/`. If the game folder cannot be found rerun the command providing the path to the game folder:<br>`cmake .. -DGAME_FOLDER="<FULL-PATH-TO-GAME-FOLDER>"`
 
-2. Download [version.dll](https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases) Win32 version
-3. Extract to `Trails in the Sky <FC; SC; 3rd>`
+2. Download [dsound.dll](https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases) Win32 version
+3. Extract to game root folder: `Trails in the Sky <FC; SC; The 3rd>`
 
 ### Using Release
 1. Download and follow instructions in [latest release](https://github.com/PolarWizard/TrailsInTheSkyFix/releases)
 
 ## Configuration
-- Adjust settings in `Trails in the Sky <FC; SC; 3rd>/scripts/TrailsInTheSkyFix.yml`
+- Adjust settings in `Trails in the Sky <FC; SC; The 3rd>/scripts/TrailsInTheSkyFix.yml`
 
 ## Screenshots
 ![Demo](images/TrailsInTheSkyFix_1.gif)
