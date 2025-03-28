@@ -46,9 +46,9 @@
 #define VERSION "1.1.0"
 #define LOG(STRING, ...) spdlog::info("{} : " STRING, __func__, ##__VA_ARGS__)
 
-#define TRAILS_IN_THE_SKY_FC 1
-#define TRAILS_IN_THE_SKY_SC 2
-#define TRAILS_IN_THE_SKY_TC 3
+#define TRAILS_IN_THE_SKY_FC  1
+#define TRAILS_IN_THE_SKY_SC  2
+#define TRAILS_IN_THE_SKY_3RD 3
 
 // .yml to struct
 typedef struct textures_t {
@@ -77,12 +77,12 @@ typedef struct yml_t {
 
 // Globals
 Utils::ModuleInfo module(GetModuleHandle(NULL));
-YAML::Node config = YAML::LoadFile("TrailsInTheSkyFCFix.yml");
+YAML::Node config = YAML::LoadFile("TrailsInTheSkyFix.yml");
 yml_t yml;
 std::map <std::string, u32> exeMap = {
     {"ed6_win_DX9.exe",  TRAILS_IN_THE_SKY_FC},
     {"ed6_win2_DX9.exe", TRAILS_IN_THE_SKY_SC},
-    {"ed6_win3_DX9.exe", TRAILS_IN_THE_SKY_TC}
+    {"ed6_win3_DX9.exe", TRAILS_IN_THE_SKY_3RD}
 };
 
 /**
@@ -97,7 +97,7 @@ std::map <std::string, u32> exeMap = {
  */
 void logInit() {
     // spdlog initialisation
-    auto logger = spdlog::basic_logger_mt("TrailsInTheSkyFCFix", "TrailsInTheSkyFCFix.log", true);
+    auto logger = spdlog::basic_logger_mt("TrailsInTheSkyFix", "TrailsInTheSkyFix.log", true);
     spdlog::set_default_logger(logger);
     spdlog::flush_on(spdlog::level::debug);
 
@@ -353,7 +353,7 @@ void tileRenderFix() {
             static f32 originalFov; // used to save the original game calculated FOV
 
             // Unfortunate the the third game uses a different offset...
-            u32 offset = module.id == TRAILS_IN_THE_SKY_TC ? 0x30 : 0x24;
+            u32 offset = module.id == TRAILS_IN_THE_SKY_3RD ? 0x30 : 0x24;
             f32* targetAddr = reinterpret_cast<f32*>(ctx.eax + offset);
 
             f32 newFov = 2.0f * std::numbers::pi_v<f32>;

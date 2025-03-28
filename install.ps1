@@ -23,7 +23,7 @@ SOFTWARE.
 #>
 
 function Show-Usage {
-    Write-Output "Usage: .\install.ps1 <path to 'Trails in the Sky FC' game folder>"
+    Write-Output "Usage: .\install.ps1 <path to 'Trails in the Sky <FC; SC; 3rd>' game folder>"
     exit 1
 }
 
@@ -40,36 +40,8 @@ $gameSubFolder = ""
 $scriptsFolder = "scripts"
 $fullPath = "$gameFolder\$gameSubFolder\$scriptsFolder"
 
-$fixName = "TrailsInTheSkyFCFix"
+$fixName = "TrailsInTheSkyFix"
 
-$ymlFileContent = @"
-name: The Legend of Heroes - Trials in the Sky FC Fix
-
-# Enables or disables all fixes
-masterEnable: true
-
-# Available fixes
-fixes:
-
-  # If enabled textures will be restored
-  textures:
-    enable: true
-
-#Available features
-features:
-
-  # If enabled ingame camera will be scaled
-  # `zoom` should never be a negative number
-  # `zoom` of 1.0 is game default
-  # The closer `zoom` gets to 0 the closer the camera will be zoomed in
-  # The closer `zoom` gets to infinity the further away the camera will be zoomed out
-  # WARNING: This is a 'for fun' feature firstly, zooming out the camera enough will
-  #          cause you to see the entire current world map and may expose things you
-  #          aren't supposed to see.
-  camera:
-    enable: false
-    zoom: 1.0
-"@
 
 if (Test-Path -Path $gameFolder) {
     $dllPath = Get-ChildItem -Path "$PSScriptRoot\bin\*.dll" -Recurse
@@ -78,8 +50,8 @@ if (Test-Path -Path $gameFolder) {
     Write-Output "Copying DLL to $fullPath"
     Copy-Item -Path $dllPath -Destination "$fullPath"
     Move-Item -Path $fullPath\$fixName.dll -Destination $fullPath\$fixName.asi -Force
-    Write-Output "Creating $fixName.yml at $fullPath"
-    New-Item -Path $fullPath -Name "$fixName.yml" -ItemType File -Value $ymlFileContent -Force | Out-Null
+    Write-Output "Copying $fixName.yml to $fullPath"
+    Copy-Item -Path "$(Split-Path -Parent $PSCommandPath)\$fixName.yml" -Destination "$fullPath"
     Write-Output "Done!"
 } else {
     Write-Output "Game folder not found at $gameFolder"

@@ -1,5 +1,5 @@
-# Trails in the Sky FC Fix
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/PolarWizard/TrailsInTheSkyFCFix/total)
+# The Legend of Heroes: Trails in the Sky Fix
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/PolarWizard/TrailsInTheSkyFix/total)
 
 Adds support for ultrawide resolutions and additional features.
 
@@ -12,8 +12,8 @@ Adds support for ultrawide resolutions and additional features.
 ### Using CMake
 1. Build and install:
 ```ps1
-git clone --recurse-submodules https://github.com/PolarWizard/TrailsInTheSkyFCFix.git
-cd TrailsInTheSkyFCFix; mkdir build; cd build
+git clone --recurse-submodules https://github.com/PolarWizard/TrailsInTheSkyFix.git
+cd TrailsInTheSkyFix; mkdir build; cd build
 cmake ..
 cmake --build .
 cmake --install .
@@ -21,16 +21,16 @@ cmake --install .
 `cmake ..` will attempt to find the game folder in `C:/Program Files (x86)/Steam/steamapps/common/`. If the game folder cannot be found rerun the command providing the path to the game folder:<br>`cmake .. -DGAME_FOLDER="<FULL-PATH-TO-GAME-FOLDER>"`
 
 2. Download [version.dll](https://github.com/ThirteenAG/Ultimate-ASI-Loader/releases) Win32 version
-3. Extract to `Trails in the Sky FC`
+3. Extract to `Trails in the Sky <FC; SC; 3rd>`
 
 ### Using Release
-1. Download and follow instructions in [latest release](https://github.com/PolarWizard/TrailsInTheSkyFCFix/releases)
+1. Download and follow instructions in [latest release](https://github.com/PolarWizard/TrailsInTheSkyFix/releases)
 
 ## Configuration
-- Adjust settings in `Trails in the Sky FC/scripts/TrailsInTheSkyFCFix.yml`
+- Adjust settings in `Trails in the Sky <FC; SC; 3rd>/scripts/TrailsInTheSkyFix.yml`
 
 ## Screenshots
-![Demo](images/TrailsInTheSkyFCFix_1.gif)
+![Demo](images/TrailsInTheSkyFix_1.gif)
 
 ## License
 Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
