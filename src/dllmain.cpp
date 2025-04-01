@@ -43,7 +43,7 @@
 #include "utils.hpp"
 
 // Macros
-#define VERSION "1.1.0"
+#define VERSION "1.1.1"
 #define LOG(STRING, ...) spdlog::info("{} : " STRING, __func__, ##__VA_ARGS__)
 
 #define TRAILS_IN_THE_SKY_FC  1
@@ -342,36 +342,133 @@ void texturesFix() {
  * As already stated above with some experimentation we know where the value is read and now know
  * which read is the one that effects tile rendering.
  *
- * A hook and injection later where we set the value to 2.0f fixes the issue and now visible tile rendering
- * is gone. Why 2.0f? I needed a value large enough to just render the entire map, this rendering and choice
- * goes well beyond 32:9, and it is quite frankly a waste of CPU andGPU resources to render the entire map
- * every frame, game loop, whatever, but ultimately this game is oldenough and simple enough graphically
- * that this is not a performance bottleneck and it will never be onmodern hardware.
+ * Inject into 1 and 4, where at 1 we can inject the value 2pi which is 360 degrees for a full FOV, and at 4
+ * we can inject code to multiply the value in xmm3 by whatever is user provided in the yml to zoom in/out
+ * the camera.
  *
  * @return void
  */
 void tileRenderFix() {
-    Utils::SignatureHook hook(
-        "F3 0F 11 4C 24 04    F3 0F 11 04 24    51    FF D6"
+    Utils::SignatureHook hook0(
+        "8D 4C 24 28    89 44 24 24    8B 44 24 14"
     );
     bool enable = yml.masterEnable & yml.fix.tileRenderDistance.enable;
-    Utils::injectHook(enable, module, hook,
+    Utils::injectHook(enable, module, hook0,
         [](SafetyHookContext& ctx) {
-            static f32 originalFov; // used to save the original game calculated FOV
+            /**
+             * Game FOV is in radians, give 2pi for full FOV.
+             * The value the game stores in xmm3 doesn't seem to be used in a FOV based calculation,
+             * however the value itself is used in that way in other peices of code that read it.
+             */
+            ctx.xmm3.f32[0] = 2.0f * std::numbers::pi_v<f32>;
+        }
+    );
 
-            // Unfortunate the the third game uses a different offset...
-            u32 offset = module.id == TRAILS_IN_THE_SKY_3RD ? 0x30 : 0x24;
-            f32* targetAddr = reinterpret_cast<f32*>(ctx.eax + offset);
-
-            f32 newFov = 2.0f * std::numbers::pi_v<f32>;
-            if (*targetAddr != newFov) {
-                originalFov = *targetAddr;
-                *targetAddr = newFov;
-            }
-            ctx.xmm0.f32[0] = originalFov * yml.feature.camera.zoom;
+    Utils::SignatureHook hook1(
+        "F3 0F 11 4C 24 04    F3 0F 11 04 24    51    FF D6"
+    );
+    enable = yml.masterEnable & yml.feature.camera.enable;
+    Utils::injectHook(enable, module, hook1,
+        [](SafetyHookContext& ctx) {
+            // xmm0 is loaded with some FOV value in radians, we just need to multiply to change it
+            ctx.xmm0.f32[0] *= yml.feature.camera.zoom;
         }
     );
 }
+
+
+
+
+
+
+
+
+void tmpReal() {
+    Utils::SignatureHook hook(
+        "8B 1D 2C 8E 55 00    B8 56 55 55 55    55    8B 2D 48 90 55 00"
+    );
+    bool enable = yml.masterEnable;
+    Utils::injectHook(enable, module, hook,
+        [](SafetyHookContext& ctx) {
+            uintptr_t address = reinterpret_cast<uintptr_t>(module.address) + 0x158E2C;
+            *reinterpret_cast<u32*>(address) = 0xA00;
+        }
+    );
+}
+
+void tmpOther() {
+    Utils::SignatureHook hook0("66 0F 6E 0D 2C 8E 55 00    98    0F 5B C9    66 0F 6E C0", 0x8);
+    Utils::SignatureHook hook1("66 0F 6E 15 2C 8E 55 00    0F 57 C9    8B 4C 24 24", 0x8);
+    Utils::SignatureHook hook2("66 0F 6E 0D 2C 8E 55 00    0F 11 05 D0 3B 38 01    0F 10 46 10", 0x8);
+    Utils::SignatureHook hook3("A1 2C 8E 55 00    89 44 24 20    A1 48 90 55 00    89 44 24 24", 0x5);
+    Utils::SignatureHook hook4("A1 2C 8E 55 00    89 44 24 10    A1 48 90 55 00", 0x5);
+    Utils::SignatureHook hook5("66 0F 6E 05 2C 8E 55 00    F3 0F E6 C0    8D 0C 85 00 00 00 00", 0x8);
+    Utils::SignatureHook hook6("8B 35 2C 8E 55 00    0F 4D C1", 0x6); //Main menu splash screen image
+    Utils::SignatureHook hook7("A1 2C 8E 55 00    83 E8 80", 0x5);
+    bool enable = yml.masterEnable;
+    Utils::injectHook(enable, module, hook0,
+        [](SafetyHookContext& ctx) {
+            ctx.xmm1.f32[0] = std::bit_cast<f32>(5120);
+        }
+    );
+    Utils::injectHook(enable, module, hook1,
+        [](SafetyHookContext& ctx) {
+            ctx.xmm2.f32[0] = std::bit_cast<f32>(5120);
+        }
+    );
+    Utils::injectHook(enable, module, hook2,
+        [](SafetyHookContext& ctx) {
+            ctx.xmm1.f32[0] = std::bit_cast<f32>(5120);
+        }
+    );
+    Utils::injectHook(enable, module, hook3,
+        [](SafetyHookContext& ctx) {
+            ctx.eax = 5120;
+        }
+    );
+    Utils::injectHook(enable, module, hook4,
+        [](SafetyHookContext& ctx) {
+            ctx.eax = 5120;
+        }
+    );
+    Utils::injectHook(enable, module, hook5,
+        [](SafetyHookContext& ctx) {
+            ctx.xmm0.f32[0] = std::bit_cast<f32>(5120);
+        }
+    );
+    Utils::injectHook(enable, module, hook6,
+        [](SafetyHookContext& ctx) {
+            ctx.esi = 5120;
+        }
+    );
+    Utils::injectHook(enable, module, hook7,
+        [](SafetyHookContext& ctx) {
+            ctx.eax = 5120;
+        }
+    );
+}
+
+
+void tmp() {
+    Utils::SignatureHook hook(
+        "8B 84 24 A0 00 00 00    89 44 24 34    8B 84 24 94 00 00 00    89 44 24 50"
+    );
+    bool enable = yml.masterEnable;
+    Utils::injectHook(enable, module, hook,
+        [](SafetyHookContext& ctx) {
+            ctx.xmm5.f32[0] += 1280.0f;
+            ctx.xmm6.f32[0] += 1280.0f;
+        }
+    );
+}
+
+
+
+
+
+
+
+
 
 /**
  * @brief Main function that initializes and applies various fixes.
@@ -391,6 +488,10 @@ DWORD __stdcall Main(void* lpParameter) {
     forceKeepAspect();
     texturesFix();
     tileRenderFix();
+
+    //tmpReal();
+    //tmpOther();
+    //tmp();
     return true;
 }
 

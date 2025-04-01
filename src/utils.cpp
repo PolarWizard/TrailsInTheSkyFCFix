@@ -78,8 +78,8 @@ namespace Utils
         return {};
     }
 
-    void patch(u64 address, std::string_view pattern) {
-        static auto patternToByte = [](std::string_view pattern) {
+    void patch(u64 address, std::string& pattern) {
+        static auto patternToByte = [](std::string& pattern) {
             std::vector<u8> bytes;
             std::istringstream stream(pattern.data());
             std::string byteStr;
@@ -103,13 +103,17 @@ namespace Utils
             std::vector<int> bytes;
             auto start = const_cast<char*>(pattern);
 
-            for (auto current = start; *current != '\0'; ++current) {
-                if (*current == '?') {
-                    current += 2;
+            while (*start != '\0') {
+                if (*start == ' ') {
+                    start++;
+                    continue;
+                }
+                else if (*start == '?') {
+                    start += 2;
                     bytes.push_back(-1);
                 }
                 else {
-                    bytes.push_back(strtoul(current, &current, 16));
+                    bytes.push_back(strtoul(start, &start, 16));
                 }
             }
             return bytes;
