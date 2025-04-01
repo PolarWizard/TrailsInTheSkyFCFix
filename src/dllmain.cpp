@@ -376,100 +376,6 @@ void tileRenderFix() {
     );
 }
 
-
-
-
-
-
-
-
-void tmpReal() {
-    Utils::SignatureHook hook(
-        "8B 1D 2C 8E 55 00    B8 56 55 55 55    55    8B 2D 48 90 55 00"
-    );
-    bool enable = yml.masterEnable;
-    Utils::injectHook(enable, module, hook,
-        [](SafetyHookContext& ctx) {
-            uintptr_t address = reinterpret_cast<uintptr_t>(module.address) + 0x158E2C;
-            *reinterpret_cast<u32*>(address) = 0xA00;
-        }
-    );
-}
-
-void tmpOther() {
-    Utils::SignatureHook hook0("66 0F 6E 0D 2C 8E 55 00    98    0F 5B C9    66 0F 6E C0", 0x8);
-    Utils::SignatureHook hook1("66 0F 6E 15 2C 8E 55 00    0F 57 C9    8B 4C 24 24", 0x8);
-    Utils::SignatureHook hook2("66 0F 6E 0D 2C 8E 55 00    0F 11 05 D0 3B 38 01    0F 10 46 10", 0x8);
-    Utils::SignatureHook hook3("A1 2C 8E 55 00    89 44 24 20    A1 48 90 55 00    89 44 24 24", 0x5);
-    Utils::SignatureHook hook4("A1 2C 8E 55 00    89 44 24 10    A1 48 90 55 00", 0x5);
-    Utils::SignatureHook hook5("66 0F 6E 05 2C 8E 55 00    F3 0F E6 C0    8D 0C 85 00 00 00 00", 0x8);
-    Utils::SignatureHook hook6("8B 35 2C 8E 55 00    0F 4D C1", 0x6); //Main menu splash screen image
-    Utils::SignatureHook hook7("A1 2C 8E 55 00    83 E8 80", 0x5);
-    bool enable = yml.masterEnable;
-    Utils::injectHook(enable, module, hook0,
-        [](SafetyHookContext& ctx) {
-            ctx.xmm1.f32[0] = std::bit_cast<f32>(5120);
-        }
-    );
-    Utils::injectHook(enable, module, hook1,
-        [](SafetyHookContext& ctx) {
-            ctx.xmm2.f32[0] = std::bit_cast<f32>(5120);
-        }
-    );
-    Utils::injectHook(enable, module, hook2,
-        [](SafetyHookContext& ctx) {
-            ctx.xmm1.f32[0] = std::bit_cast<f32>(5120);
-        }
-    );
-    Utils::injectHook(enable, module, hook3,
-        [](SafetyHookContext& ctx) {
-            ctx.eax = 5120;
-        }
-    );
-    Utils::injectHook(enable, module, hook4,
-        [](SafetyHookContext& ctx) {
-            ctx.eax = 5120;
-        }
-    );
-    Utils::injectHook(enable, module, hook5,
-        [](SafetyHookContext& ctx) {
-            ctx.xmm0.f32[0] = std::bit_cast<f32>(5120);
-        }
-    );
-    Utils::injectHook(enable, module, hook6,
-        [](SafetyHookContext& ctx) {
-            ctx.esi = 5120;
-        }
-    );
-    Utils::injectHook(enable, module, hook7,
-        [](SafetyHookContext& ctx) {
-            ctx.eax = 5120;
-        }
-    );
-}
-
-
-void tmp() {
-    Utils::SignatureHook hook(
-        "8B 84 24 A0 00 00 00    89 44 24 34    8B 84 24 94 00 00 00    89 44 24 50"
-    );
-    bool enable = yml.masterEnable;
-    Utils::injectHook(enable, module, hook,
-        [](SafetyHookContext& ctx) {
-            ctx.xmm5.f32[0] += 1280.0f;
-            ctx.xmm6.f32[0] += 1280.0f;
-        }
-    );
-}
-
-
-
-
-
-
-
-
-
 /**
  * @brief Main function that initializes and applies various fixes.
  *
@@ -488,10 +394,6 @@ DWORD __stdcall Main(void* lpParameter) {
     forceKeepAspect();
     texturesFix();
     tileRenderFix();
-
-    //tmpReal();
-    //tmpOther();
-    //tmp();
     return true;
 }
 
