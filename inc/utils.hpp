@@ -166,9 +166,12 @@ namespace Utils
                 LOG("Found '{}' @ {:s}+{:x}", hook.signature, module.name, relAddr);
                 u64 hookAbsAddr = absAddr + hook.offset;
                 u64 hookRelAddr = relAddr + hook.offset;
-                static SafetyHookMid aspectRatioHook = safetyhook::create_mid(
-                    reinterpret_cast<void*>(hookAbsAddr),
-                    callback
+                static std::vector<SafetyHookMid> midhooks;
+                midhooks.push_back(
+                    safetyhook::create_mid(
+                        reinterpret_cast<void*>(hookAbsAddr),
+                        callback
+                    )
                 );
                 LOG("Hooked @ {:s}+{:x}", module.name, hookRelAddr);
             }

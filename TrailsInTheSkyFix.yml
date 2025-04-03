@@ -1,6 +1,6 @@
 name: "The Legend of Heroes: Trials in the Sky Fix"
 
-# Enables or disables all fixes
+# Enables or disables all fixes and features
 masterEnable: true
 
 # Available fixes

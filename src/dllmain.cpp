@@ -46,9 +46,12 @@
 #define VERSION "1.1.1"
 #define LOG(STRING, ...) spdlog::info("{} : " STRING, __func__, ##__VA_ARGS__)
 
-#define TRAILS_IN_THE_SKY_FC  1
-#define TRAILS_IN_THE_SKY_SC  2
-#define TRAILS_IN_THE_SKY_3RD 3
+// Enums
+enum ModuleId : u32 {
+    TRAILS_IN_THE_SKY_FC,
+    TRAILS_IN_THE_SKY_SC,
+    TRAILS_IN_THE_SKY_3RD
+};
 
 // .yml to struct
 typedef struct textures_t {
@@ -84,7 +87,7 @@ typedef struct yml_t {
 Utils::ModuleInfo module(GetModuleHandle(NULL));
 YAML::Node config = YAML::LoadFile("TrailsInTheSkyFix.yml");
 yml_t yml;
-std::map <std::string, u32> exeMap = {
+std::map <std::string, ModuleId> exeMap = {
     {"ed6_win_DX9.exe",  TRAILS_IN_THE_SKY_FC},
     {"ed6_win2_DX9.exe", TRAILS_IN_THE_SKY_SC},
     {"ed6_win3_DX9.exe", TRAILS_IN_THE_SKY_3RD}
@@ -342,33 +345,50 @@ void texturesFix() {
  * As already stated above with some experimentation we know where the value is read and now know
  * which read is the one that effects tile rendering.
  *
- * Inject into 1 and 4, where at 1 we can inject the value 2pi which is 360 degrees for a full FOV, and at 4
- * we can inject code to multiply the value in xmm3 by whatever is user provided in the yml to zoom in/out
- * the camera.
+ * Inject all 4 of these locations, where at 1+2+3 we can inject the value 2pi which is 360 degrees for a full
+ * FOV, and at 4 we can inject code to multiply the value in xmm3 by whatever is user provided in the yml to
+ * zoom in/out the camera.
  *
  * @return void
  */
 void tileRenderFix() {
-    Utils::SignatureHook hook0(
-        "8D 4C 24 28    89 44 24 24    8B 44 24 14"
-    );
-    bool enable = yml.masterEnable & yml.fix.tileRenderDistance.enable;
-    Utils::injectHook(enable, module, hook0,
-        [](SafetyHookContext& ctx) {
-            /**
-             * Game FOV is in radians, give 2pi for full FOV.
-             * The value the game stores in xmm3 doesn't seem to be used in a FOV based calculation,
-             * however the value itself is used in that way in other peices of code that read it.
-             */
-            ctx.xmm3.f32[0] = 2.0f * std::numbers::pi_v<f32>;
-        }
-    );
+    static const std::map<u32, std::vector<Utils::SignatureHook>> signatureHooksByModule = {
+        { TRAILS_IN_THE_SKY_FC, {
+            Utils::SignatureHook("8D 4C 24 28    89 44 24 24    8B 44 24 14"),
+            Utils::SignatureHook("8D 4C 24 20    89 44 24 1C    8B 44 24 10"),
+            Utils::SignatureHook("66 0F D6 44 24 1C    F3 0F 7E 41 2C")
+        } },
+        { TRAILS_IN_THE_SKY_SC, {
+            Utils::SignatureHook("8D 4C 24 20    66 0F D6 44 24 14"),
+            Utils::SignatureHook("8D 4C 24 20    66 0F D6 44 24 20"),
+            Utils::SignatureHook("66 0F D6 44 24 24    F3 0F 7E 41 2C")
+        } },
+        { TRAILS_IN_THE_SKY_3RD, {
+            Utils::SignatureHook("8D 4C 24 20    66 0F D6 44 24 14"),
+            Utils::SignatureHook("8D 4C 24 20    66 0F D6 44 24 14"), // Not a typo - this is another instance of the signature
+            Utils::SignatureHook("66 0F D6 44 24 24    F3 0F 7E 41 38")
+        } },
+    };
 
-    Utils::SignatureHook hook1(
-        "F3 0F 11 4C 24 04    F3 0F 11 04 24    51    FF D6"
-    );
+    auto it = signatureHooksByModule.find(module.id);
+    if (it == signatureHooksByModule.end()) {
+        LOG("No signature hooks found for module {:s}", module.name);
+        return;
+    }
+    std::vector<Utils::SignatureHook> signatureHooks = it->second;
+
+    bool enable = yml.masterEnable & yml.fix.tileRenderDistance.enable;
+    for (auto& signatureHook : signatureHooks) {
+        Utils::injectHook(enable, module, signatureHook,
+            [](SafetyHookContext& ctx) {
+                ctx.xmm3.f32[0] = 2.0f * std::numbers::pi_v<f32>;
+            }
+        );
+    }
+
+    Utils::SignatureHook gHook("F3 0F 11 4C 24 04    F3 0F 11 04 24    51    FF D6");
     enable = yml.masterEnable & yml.feature.camera.enable;
-    Utils::injectHook(enable, module, hook1,
+    Utils::injectHook(enable, module, gHook,
         [](SafetyHookContext& ctx) {
             // xmm0 is loaded with some FOV value in radians, we just need to multiply to change it
             ctx.xmm0.f32[0] *= yml.feature.camera.zoom;
